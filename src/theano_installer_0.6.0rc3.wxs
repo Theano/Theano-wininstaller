@@ -1,0 +1,129 @@
+<?xml version='1.0' encoding='windows-1252'?>
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+
+  <!--
+       Compile with:
+          candle.exe <file>.wxs
+          light.exe -ext WixUIExtension <file>.wixobj
+
+       Install with:
+          msiexec /i <file>.msi [/l[*v] install.log]
+
+       Uninstall with:
+          msiexec /x <file>.msi [/l[*v] uninstall.log]
+       -->
+
+  <Product Name='Theano 0.6rc3' Id='750D7A50-334E-4F7E-B480-0E956A7DBF2F' UpgradeCode='AC20D37A-0EC6-48D2-937F-13EDD355EEC4'
+    Language='1033' Codepage='1252' Version='0.6.0.3' Manufacturer='Theano development team / Université de Montréal'>
+
+    <Package Id='*' Keywords='Installer' Description="Theano 0.6rc3 Installer"
+      Comments='Theano is a mathematical compiler...' Manufacturer='Theano'
+      InstallerVersion='100' Languages='1033' Compressed='yes' SummaryCodepage='1252' />
+    <Media Id='1' Cabinet='Sample.cab' EmbedCab='yes' DiskPrompt='CD-ROM #1' />
+    <Property Id='DiskPrompt' Value="Theano 0.6rc3 Installation" />
+
+    <Property Id='USERPROFILE'>
+      <DirectorySearch Id='user_profile_search' Path='[%USERPROFILE]' />
+    </Property>
+
+    <Property Id='PREVIOUS_THEANO_RC'>
+      <DirectorySearchRef Id='user_profile_search' Path='[%USERPROFILE]'>
+        <FileSearch Id='previous_theano_rc' Name='.theanorc.txt'/>
+      </DirectorySearchRef>
+    </Property>
+
+    <Property Id='ANACONDA'>
+      <DirectorySearch Id='Anaconda_dir_search' Depth='2' Path='Anaconda'/>
+    </Property>
+
+    <!-- DLLs that need to be in the PATH so they are dynamically loaded.
+         We copy them from Anaconda\MinGW\*\lib to Anaconda\ if needed. -->
+    <Property Id='ANACONDA_GCC_DLL'>
+      <DirectorySearchRef Id='Anaconda_dir_search' Path='Anaconda'>
+        <FileSearch Id='Anaconda_libgcc' Name='libgcc_s_sjlj-1.dll'/>
+      </DirectorySearchRef>
+    </Property>
+
+    <Property Id='MINGW_GCC_DLL'>
+      <DirectorySearch Id='MinGW_search' Path='[ANACONDA]MinGW' Depth='2'>
+        <FileSearch Name='libgcc_s_sjlj-1.dll' />
+      </DirectorySearch>
+    </Property>
+
+    <Property Id='ANACONDA_GF_DLL'>
+      <DirectorySearchRef Id='Anaconda_dir_search' Path='Anaconda'>
+        <FileSearch Id='Anaconda_libgf' Name='libgfortran-3.dll'/>
+      </DirectorySearchRef>
+    </Property>
+
+    <Property Id='MINGW_GF_DLL'>
+      <DirectorySearchRef Id='MinGW_search' Path='[ANACONDA]MinGW'>
+        <FileSearch Id='MinGW_libgf' Name='libgfortran-3.dll' />
+      </DirectorySearchRef>
+    </Property>
+
+    <Property Id='ANACONDA_STDC_DLL'>
+      <DirectorySearchRef Id='Anaconda_dir_search' Path='Anaconda'>
+        <FileSearch Id='Anaconda_libstdc' Name='libstdc++-6.dll'/>
+      </DirectorySearchRef>
+    </Property>
+
+    <Property Id='MINGW_STDC_DLL'>
+      <DirectorySearchRef Id='MinGW_search' Path='[ANACONDA]MinGW'>
+        <FileSearch Id='MinGW_libstdc' Name='libstdc++-6.dll' />
+      </DirectorySearchRef>
+    </Property>
+
+    <Property Id='BASECOMPILEDIR'>
+      <DirectorySearch Id='base_compiledir_search' Path='[LocalAppDataFolder]Theano'/>
+    </Property>
+
+    <Directory Id='TARGETDIR' Name='SourceDir'>
+      <Directory Id='USERPROFILE' Name='USERPROFILE'>
+        <Component Id='default_config_file' Guid='ECC69436-7EE5-40AB-B5C6-FE5AE97C1ED9'>
+          <File Id='default_theano_rc' Name='theanorc_default.txt' Source='theanorc_default.txt' KeyPath='yes' />
+        </Component>
+      </Directory>
+    </Directory>
+
+    <DirectoryRef Id='USERPROFILE'>
+      <Component Id='config_file' Guid='35D27A05-B25A-4738-BDDF-7925273DA47C' Permanent='yes'>
+        <Condition>NOT PREVIOUS_THEANO_RC</Condition>
+        <CopyFile Id="theano_rc" FileId="default_theano_rc" DestinationName=".theanorc.txt" DestinationProperty='USERPROFILE'/>
+      </Component>
+    </DirectoryRef>
+
+    <Condition
+      Message="The installer could not find a version of Anaconda installed. Please download and install Anaconda CE.">
+      ANACONDA
+    </Condition>
+    <Feature Id='Config' Level='1'>
+      <ComponentRef Id='default_config_file' />
+      <ComponentRef Id='config_file' />
+    </Feature>
+
+    <Property Id='PipEXE'>pip</Property>
+    <Property Id='CmdEXE'>cmd</Property>
+    <CustomAction Id='CopyAnacondaGccDLL' Property='CmdEXE' ExeCommand='/c copy [MINGW_GCC_DLL] [ANACONDA]' />
+    <CustomAction Id='CopyAnacondaGfDLL' Property='CmdEXE' ExeCommand='/c copy [MINGW_GF_DLL] [ANACONDA]' />
+    <CustomAction Id='CopyAnacondaStdcDLL' Property='CmdEXE' ExeCommand='/c copy "[MINGW_STDC_DLL]" [ANACONDA]' />
+    <CustomAction Id='PipInstall' Property='PipEXE' ExeCommand='install -q theano==0.6.0rc3' />
+    <CustomAction Id='PipUninstall' Property='PipEXE' ExeCommand='uninstall theano -y -q'/>
+    <CustomAction Id='RemoveCompileDir' Property='CmdEXE' ExeCommand='/c rmdir /s /q [BASECOMPILEDIR]' Return='ignore'/>
+
+    <InstallExecuteSequence>
+      <Custom Action='CopyAnacondaGccDLL' Before='InstallFiles'>MINGW_GCC_DLL AND NOT ANACONDA_GCC_DLL AND NOT Installed</Custom>
+      <Custom Action='CopyAnacondaGfDLL' Before='InstallFiles'>MINGW_GF_DLL AND NOT ANACONDA_GF_DLL AND NOT Installed</Custom>
+      <Custom Action='CopyAnacondaStdcDLL' Before='InstallFiles'>MINGW_STDC_DLL AND NOT ANACONDA_STDC_DLL AND NOT Installed</Custom>
+      <Custom Action='PipInstall' Before='InstallFiles'>NOT Installed</Custom>
+      <Custom Action='PipUninstall' After='RemoveFiles'>Installed and NOT UpgradingProductCode</Custom>
+      <Custom Action='RemoveCompileDir' After='PipUninstall'>Installed and NOT UpgradingProductCode</Custom>
+    </InstallExecuteSequence>
+
+    <!-- UI Elements -->
+    <UIRef Id="WixUI_Minimal" />
+    <WixVariable Id="WixUILicenseRtf" Value="Theano_License.rtf" />
+
+ </Product>
+</Wix>
+
